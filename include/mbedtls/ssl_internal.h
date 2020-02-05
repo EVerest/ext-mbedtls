@@ -346,6 +346,9 @@ struct mbedtls_ssl_handshake_params
 #endif /* MBEDTLS_KEY_EXCHANGE__SOME__PSK_ENABLED */
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
     mbedtls_ssl_key_cert *key_cert;     /*!< chosen key/cert pair (server)  */
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+    mbedtls_ssl_trusted_authority *trusted_authority; /*!< trusted authorities */
+#endif /* MBEDTLS_SSL_TRUSTED_CA_KEYS */
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
     int sni_authmode;                   /*!< authmode from SNI callback     */
     mbedtls_ssl_key_cert *sni_key_cert; /*!< key/cert list from SNI         */
@@ -730,6 +733,19 @@ struct mbedtls_ssl_key_cert
     mbedtls_ssl_key_cert *next;             /*!< next key/cert pair         */
 };
 #endif /* MBEDTLS_X509_CRT_PARSE_C */
+
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+/*
+ * List of trusted authorities
+ */
+struct mbedtls_ssl_trusted_authority
+{
+    unsigned char *id;      /*!< identifier                   */
+    size_t len;             /*!< length of id                 */
+    int id_type;            /*!< CA root key identifier type  */
+    mbedtls_ssl_trusted_authority *next;  /*!< next trusted authority           */
+};
+#endif /* MBEDTLS_SSL_TRUSTED_CA_KEYS */
 
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
 /*
