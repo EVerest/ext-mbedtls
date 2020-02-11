@@ -347,7 +347,7 @@ struct mbedtls_ssl_handshake_params
 #if defined(MBEDTLS_X509_CRT_PARSE_C)
     mbedtls_ssl_key_cert *key_cert;     /*!< chosen key/cert pair (server)  */
 #if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
-    mbedtls_ssl_trusted_authority *trusted_authority; /*!< trusted authorities */
+    mbedtls_ssl_key_cert *trusted_ca_key_cert; /*!< trusted authorities     */
 #endif /* MBEDTLS_SSL_TRUSTED_CA_KEYS */
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
     int sni_authmode;                   /*!< authmode from SNI callback     */
