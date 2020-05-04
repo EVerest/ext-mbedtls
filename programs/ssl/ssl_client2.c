@@ -116,6 +116,8 @@ int main( void )
 #define DFL_SHA1                -1
 #define DFL_AUTH_MODE           -1
 #define DFL_MFL_CODE            MBEDTLS_SSL_MAX_FRAG_LEN_NONE
+#define DFL_TRUSTED_ID          NULL
+#define DFL_TRUSTED_ID_TYPE     -1
 #define DFL_TRUNC_HMAC          -1
 #define DFL_RECSPLIT            -1
 #define DFL_DHMLEN              -1
@@ -252,6 +254,15 @@ int main( void )
 #define USAGE_NSS_KEYLOG ""
 #define USAGE_NSS_KEYLOG_FILE ""
 #endif /* MBEDTLS_SSL_EXPORT_KEYS */
+
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+#define USAGE_TRUSTED_CA_KEYS \
+    "    trusted_id=%%s         default: \"\"\n"                 \
+    "                          A list of trusted authorities.\n" \
+    "    trusted_id_type=%%d     default: \"pre_agreed\"\n"
+#else
+#define USAGE_TRUSTED_CA_KEYS ""
+#endif
 
 #if defined(MBEDTLS_SSL_TRUNCATED_HMAC)
 #define USAGE_TRUNC_HMAC                                    \
@@ -487,6 +498,8 @@ struct options
     int allow_sha1;             /* flag for SHA-1 support                   */
     int auth_mode;              /* verify mode for connection               */
     unsigned char mfl_code;     /* code for maximum fragment length         */
+    char *trusted_id;           /* list of trusted authorities              */
+    int trusted_id_type;        /* trusted authority type                   */
     int trunc_hmac;             /* negotiate truncated hmac or not          */
     int recsplit;               /* enable record splitting?                 */
     int dhmlen;                 /* minimum DHM params len in bits           */
@@ -1287,6 +1300,8 @@ int main( int argc, char *argv[] )
     opt.allow_sha1          = DFL_SHA1;
     opt.auth_mode           = DFL_AUTH_MODE;
     opt.mfl_code            = DFL_MFL_CODE;
+    opt.trusted_id          = DFL_TRUSTED_ID;
+    opt.trusted_id_type     = DFL_TRUSTED_ID_TYPE;
     opt.trunc_hmac          = DFL_TRUNC_HMAC;
     opt.recsplit            = DFL_RECSPLIT;
     opt.dhmlen              = DFL_DHMLEN;
@@ -1646,6 +1661,10 @@ int main( int argc, char *argv[] )
             else
                 goto usage;
         }
+        else if( strcmp( p, "trusted_id" ) == 0)
+            opt.trusted_id = q;
+        else if( strcmp( p, "trusted_id_type" ) == 0)
+            opt.trusted_id_type = atoi( q );
         else if( strcmp( p, "trunc_hmac" ) == 0 )
         {
             switch( atoi( q ) )
@@ -2247,6 +2266,36 @@ int main( int argc, char *argv[] )
         mbedtls_printf( " failed\n  ! mbedtls_ssl_conf_max_frag_len returned %d\n\n",
                         ret );
         goto exit;
+    }
+#endif
+
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+    if( opt.trusted_id != DFL_TRUSTED_ID &&
+        opt.trusted_id_type != DFL_TRUSTED_ID_TYPE )
+    {
+        const char *id = NULL;
+
+        /* Parse comma-separated list */
+        p = (char *) opt.trusted_id;
+
+        while( *p != '\0' )
+        {
+            id = p;
+
+            /* Terminate the current string and move on to next one */
+            while( *p != ',' && *p != '\0' )
+                p++;
+            if( *p == ',' )
+                *p++ = '\0';
+
+            mbedtls_ssl_conf_trusted_authority( &conf, (const unsigned char *) id,
+                                                strlen( id ), opt.trusted_id_type );
+        }
+    }
+    else if ( opt.trusted_id != DFL_TRUSTED_ID ||
+              opt.trusted_id_type == MBEDTLS_SSL_CA_ID_TYPE_PRE_AGREED )
+    {
+        mbedtls_ssl_conf_trusted_authority( &conf, NULL, 0, opt.trusted_id_type );
     }
 #endif
 
