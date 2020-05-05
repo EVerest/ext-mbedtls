@@ -9067,7 +9067,7 @@ void mbedtls_ssl_set_hs_authmode( mbedtls_ssl_context *ssl,
 
 #if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
 int mbedtls_ssl_conf_trusted_authority(mbedtls_ssl_config *conf,
-                                       unsigned char *id,
+                                       const unsigned char *id,
                                        size_t id_len,
                                        int id_type )
 {
