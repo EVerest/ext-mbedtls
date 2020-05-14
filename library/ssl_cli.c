@@ -558,6 +558,92 @@ static void ssl_write_max_fragment_length_ext( mbedtls_ssl_context *ssl,
 }
 #endif /* MBEDTLS_SSL_MAX_FRAGMENT_LENGTH */
 
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+static void ssl_write_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
+                                           unsigned char *buf,
+                                           size_t *olen )
+{
+    unsigned char *p = buf;
+    const unsigned char *end = ssl->out_msg + MBEDTLS_SSL_OUT_CONTENT_LEN;
+    size_t trusted_ca_keys_len = 0;
+    const mbedtls_ssl_trusted_authority *next_auth;
+
+    *olen = 0;
+
+    MBEDTLS_SSL_DEBUG_MSG( 3, ( "client hello, adding trusted_ca_keys extension" ) );
+
+    if ( ssl->conf->trusted_auth == NULL )
+        return;
+
+    /* check length of the buffer */
+    next_auth = ssl->conf->trusted_auth;
+
+    while( next_auth != NULL )
+    {
+        trusted_ca_keys_len += ( next_auth->len + 3 );
+        next_auth = next_auth->next;
+    }
+
+    if( end < p || (size_t)( end - p ) < ( trusted_ca_keys_len + 4 ) )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "buffer too small" ) );
+        return;
+    }
+
+    /*
+     * Sect. 3, RFC 6066 (TLS Extensions Definitions)
+     *
+     * In order to provide any of the server names, clients MAY include an
+     * extension of type "server_name" in the (extended) client hello. The
+     * "extension_data" field of this extension SHALL contain
+     * "ServerNameList" where:
+     *
+     * struct {
+     *     TrustedAuthority trusted_authorities_list<0..2^16-1>;
+     * } TrustedAuthorities;
+     *
+     *  struct {
+     *      IdentifierType identifier_type;
+     *      select (identifier_type) {
+     *          case pre_agreed: struct {};
+     *          case key_sha1_hash: SHA1Hash;
+     *          case x509_name: DistinguishedName;
+     *          case cert_sha1_hash: SHA1Hash;
+     *      } identifier;
+     *  } TrustedAuthority;
+     *
+     * enum {
+     *      pre_agreed(0), key_sha1_hash(1), x509_name(2),
+     *      cert_sha1_hash(3), (255)
+     *  } IdentifierType;
+     *
+     *  opaque DistinguishedName<1..2^16-1>;
+     *
+     */
+    *p++ = (unsigned char)( ( MBEDTLS_TLS_EXT_TRUSTED_CA_KEYS >> 8 ) & 0xFF );
+    *p++ = (unsigned char)( ( MBEDTLS_TLS_EXT_TRUSTED_CA_KEYS      ) & 0xFF );
+
+    *p++ = (unsigned char)( ( ( trusted_ca_keys_len ) >> 8 ) & 0xFF );
+    *p++ = (unsigned char)( ( ( trusted_ca_keys_len )      ) & 0xFF );
+
+    next_auth = ssl->conf->trusted_auth;
+    while( next_auth != NULL )
+    {
+        *p++ = (unsigned char)( ( ( next_auth->len + 1 ) >> 8 ) & 0xFF );
+        *p++ = (unsigned char)( ( ( next_auth->len + 1 )      ) & 0xFF );
+
+        *p++ = (unsigned char)( ( next_auth->id_type ) & 0xFF );
+
+        memcpy( p, next_auth->id, next_auth->len );
+        p += next_auth->len;
+
+        next_auth = next_auth->next;
+    }
+
+    *olen = trusted_ca_keys_len + 4;
+}
+#endif /* MBEDTLS_SSL_TRUSTED_CA_KEYS */
+
 #if defined(MBEDTLS_SSL_TRUNCATED_HMAC)
 static void ssl_write_truncated_hmac_ext( mbedtls_ssl_context *ssl,
                                           unsigned char *buf, size_t *olen )
@@ -1099,6 +1185,11 @@ static int ssl_write_client_hello( mbedtls_ssl_context *ssl )
 
     // First write extensions, then the total length
     //
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+    ssl_write_trusted_ca_keys_ext( ssl, p + 2 + ext_len, &olen );
+    ext_len += olen;
+#endif
+
 #if defined(MBEDTLS_SSL_SERVER_NAME_INDICATION)
     ssl_write_hostname_ext( ssl, p + 2 + ext_len, &olen );
     ext_len += olen;
@@ -1273,6 +1364,28 @@ static int ssl_parse_max_fragment_length_ext( mbedtls_ssl_context *ssl,
     return( 0 );
 }
 #endif /* MBEDTLS_SSL_MAX_FRAGMENT_LENGTH */
+
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+static int ssl_parse_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
+                                         const unsigned char *buf,
+                                         size_t len )
+{
+    if ( ssl->conf->trusted_auth == NULL )
+    {
+        MBEDTLS_SSL_DEBUG_MSG( 1, ( "trusted_ca_keys extension unexpected" ) );
+        mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
+                                        MBEDTLS_SSL_ALERT_MSG_HANDSHAKE_FAILURE );
+        return( MBEDTLS_ERR_SSL_BAD_HS_SERVER_HELLO );
+    }
+
+    ((void) buf);
+    ((void) len);
+
+    ssl->session_negotiate->trusted_ca_keys = MBEDTLS_SSL_TRUSTED_CA_KEYS_ENABLED;
+
+    return( 0 );
+}
+#endif /* MBEDTLS_SSL_TRUSTED_CA_KEYS */
 
 #if defined(MBEDTLS_SSL_TRUNCATED_HMAC)
 static int ssl_parse_truncated_hmac_ext( mbedtls_ssl_context *ssl,
@@ -2001,6 +2114,19 @@ static int ssl_parse_server_hello( mbedtls_ssl_context *ssl )
 
             break;
 #endif /* MBEDTLS_SSL_MAX_FRAGMENT_LENGTH */
+
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+        case MBEDTLS_TLS_EXT_TRUSTED_CA_KEYS:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "found trusted_ca_keys extension" ) );
+
+            if( ( ret = ssl_parse_trusted_ca_keys_ext( ssl,
+                            ext + 4, ext_size ) ) != 0 )
+            {
+                return( ret );
+            }
+
+            break;
+#endif /* MBEDTLS_SSL_TRUSTED_CA_KEYS */
 
 #if defined(MBEDTLS_SSL_TRUNCATED_HMAC)
         case MBEDTLS_TLS_EXT_TRUNCATED_HMAC:
