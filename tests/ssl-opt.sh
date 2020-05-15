@@ -1334,6 +1334,56 @@ run_test    "DTLS: multiple records in same datagram, neither client nor server"
             -S "next record in same datagram" \
             -C "next record in same datagram"
 
+# Tests for Trusted CA keys extensions
+
+requires_config_enabled MBEDTLS_SSL_TRUSTED_CA_KEYS
+run_test    "Trusted CA keys: pre agreed" \
+            "$P_SRV debug_level=4 trusted_id_type=0" \
+            "$P_CLI trusted_id_type=0" \
+            0 \
+            -s "selected trusted id #1" \
+            -S "no appropriate certificate chain found"
+
+requires_config_enabled MBEDTLS_SSL_TRUSTED_CA_KEYS
+run_test    "Trusted CA keys: same trusted ids" \
+            "$P_SRV debug_level=4 trusted_id_type=3 trusted_id=01234567890123456789" \
+            "$P_CLI trusted_id_type=3 trusted_id=01234567890123456789" \
+            0 \
+            -s "selected trusted id #1" \
+            -S "no appropriate certificate chain found"
+
+requires_config_enabled MBEDTLS_SSL_TRUSTED_CA_KEYS
+run_test    "Trusted CA keys: different trusted ids" \
+            "$P_SRV debug_level=4 trusted_id=3 trusted_id=01234567890123456789" \
+            "$P_CLI trusted_id_type=3 trusted_id=11234567890123456789" \
+            0 \
+            -s "no appropriate certificate chain found" \
+            -S "selected trusted id #1"
+
+requires_config_enabled MBEDTLS_SSL_TRUSTED_CA_KEYS
+run_test    "Trusted CA keys: different trusted id types" \
+            "$P_SRV debug_level=4 trusted_id_type=3 trusted_id=01234567890123456789" \
+            "$P_CLI trusted_id_type=2 trusted_id=01234567890123456789" \
+            0 \
+            -s "no appropriate certificate chain found" \
+            -S "selected trusted id #1"
+
+requires_config_enabled MBEDTLS_SSL_TRUSTED_CA_KEYS
+run_test    "Trusted CA keys: list of trusted ids" \
+            "$P_SRV debug_level=4 trusted_id_type=2 trusted_id=11234567890123456789" \
+            "$P_CLI trusted_id_type=2 trusted_id=01234567890123456789,11234567890123456789" \
+            0 \
+            -s "selected trusted id #1" \
+            -S "no appropriate certificate chain found"
+
+requires_config_enabled MBEDTLS_SSL_TRUSTED_CA_KEYS
+run_test    "Trusted CA keys: list of different trusted ids" \
+            "$P_SRV debug_level=4 trusted_id_type=2 trusted_id=11234567890123456789" \
+            "$P_CLI trusted_id_type=2 trusted_id=01234567890123456789,02234567890123456789" \
+            0 \
+            -s "no appropriate certificate chain found" \
+            -S "selected trusted id #1"
+
 # Tests for Truncated HMAC extension
 
 run_test    "Truncated HMAC: client default, server default" \
