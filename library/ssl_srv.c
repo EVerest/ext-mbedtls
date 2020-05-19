@@ -618,9 +618,12 @@ static int ssl_parse_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
             break;
     }
 
-    if( ssl->handshake->trusted_ca_key_cert == NULL )
-        MBEDTLS_SSL_DEBUG_MSG( 1, ( "no appropriate certificate chain found "
-                                    "in the trusted authorities list" ) );
+    if( ssl->conf->trusted_auth != NULL ) {
+        if ( ssl->handshake->trusted_ca_key_cert == NULL )
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "no appropriate certificate chain found "
+                                        "in the trusted authorities list" ) );
+        ssl->session_negotiate->trusted_ca_keys = MBEDTLS_SSL_TRUSTED_CA_KEYS_ENABLED;
+    }
 
     return( 0 );
 }
