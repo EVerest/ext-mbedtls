@@ -4295,16 +4295,21 @@ int mbedtls_ssl_conf_trusted_authority( mbedtls_ssl_config *conf,
     switch( id_type )
     {
         case MBEDTLS_SSL_CA_ID_TYPE_PRE_AGREED:
+            if( id_len > 0 )
+                return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+            break;
         case MBEDTLS_SSL_CA_ID_TYPE_KEY_SHA1_HASH:
-        case MBEDTLS_SSL_CA_ID_TYPE_X509_NAME:
         case MBEDTLS_SSL_CA_ID_TYPE_CERT_SHA1_HASH:
+            if( id_len != 20 )
+                return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+            break;
+        case MBEDTLS_SSL_CA_ID_TYPE_X509_NAME:
+            if( id_len == 0 )
+                return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
             break;
         default:
             return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
     }
-
-    if( id_len > 20 )
-        return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
 
     new_auth = mbedtls_calloc( 1, sizeof( mbedtls_ssl_trusted_authority ) );
     if( new_auth == NULL )
