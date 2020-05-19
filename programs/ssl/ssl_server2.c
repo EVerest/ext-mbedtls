@@ -3117,13 +3117,20 @@ int main( int argc, char *argv[] )
             if( *p == ',' )
                 *p++ = '\0';
 
-            mbedtls_ssl_conf_trusted_authority( &conf, (const unsigned char *) id,
-                                                strlen( id ), opt.trusted_id_type );
+            if( ( ret = mbedtls_ssl_conf_trusted_authority( &conf, (const unsigned char *) id,
+                                                strlen( id ), opt.trusted_id_type ) ) != 0 ) {
+                  mbedtls_printf( " failed\n  ! mbedtls_ssl_conf_trusted_authority returned %d\n\n", ret );
+                  goto exit;
+            }
         }
     }
     else if ( opt.trusted_id_type == MBEDTLS_SSL_CA_ID_TYPE_PRE_AGREED )
     {
-        mbedtls_ssl_conf_trusted_authority( &conf, NULL, 0, opt.trusted_id_type );
+        if( ( ret = mbedtls_ssl_conf_trusted_authority( &conf, NULL,
+                                            0, opt.trusted_id_type ) ) != 0 ) {
+              mbedtls_printf( " failed\n  ! mbedtls_ssl_conf_trusted_authority returned %d\n\n", ret );
+              goto exit;
+        }
     }
 #endif
 
