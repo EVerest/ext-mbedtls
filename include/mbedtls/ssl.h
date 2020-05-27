@@ -188,6 +188,9 @@
 #define MBEDTLS_SSL_LEGACY_ALLOW_RENEGOTIATION  1
 #define MBEDTLS_SSL_LEGACY_BREAK_HANDSHAKE      2
 
+#define MBEDTLS_SSL_TRUSTED_CA_KEYS_DISABLED    0
+#define MBEDTLS_SSL_TRUSTED_CA_KEYS_ENABLED     1
+
 #define MBEDTLS_SSL_TRUNC_HMAC_DISABLED         0
 #define MBEDTLS_SSL_TRUNC_HMAC_ENABLED          1
 #define MBEDTLS_SSL_TRUNCATED_HMAC_LEN          10  /* 80 bits, rfc 6066 section 7 */
@@ -973,6 +976,10 @@ struct mbedtls_ssl_session
 #if defined(MBEDTLS_SSL_MAX_FRAGMENT_LENGTH)
     unsigned char mfl_code;     /*!< MaxFragmentLength negotiated by peer */
 #endif /* MBEDTLS_SSL_MAX_FRAGMENT_LENGTH */
+
+#if defined(MBEDTLS_SSL_TRUSTED_CA_KEYS)
+    int trusted_ca_keys;             /*!< flag for trusted ca keys activation   */
+#endif /* MBEDTLS_SSL_TRUSTED_CA_KEYS */
 
 #if defined(MBEDTLS_SSL_TRUNCATED_HMAC)
     int trunc_hmac;             /*!< flag for truncated hmac activation   */
