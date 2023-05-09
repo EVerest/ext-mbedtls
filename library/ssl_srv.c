@@ -549,7 +549,7 @@ static int ssl_parse_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
                                          const unsigned char *buf,
                                          size_t len )
 {
-    size_t trusted_auth_list_size, trusted_auth_size;
+    size_t trusted_auth_list_size = 0, trusted_auth_size;
     uint8_t identifier_type;
     const unsigned char *p;
     const mbedtls_ssl_trusted_authority *own_trusted_auth;
@@ -565,12 +565,11 @@ static int ssl_parse_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
                                         MBEDTLS_SSL_ALERT_MSG_DECODE_ERROR );
         return( MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO );
     }
-    trusted_auth_list_size = len;
 
     p = buf;
     ssl->handshake->trusted_ca_key_cert = NULL;
 
-    while( trusted_auth_list_size >  0 )
+    while( trusted_auth_list_size < len )
     {
         trusted_auth_size = ( ( *p << 8 ) | *( p + 1 ) );
         identifier_type = *( p + 2 );
@@ -580,38 +579,40 @@ static int ssl_parse_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
 
         /* Check items of the received authority list */
         if( ( identifier_type > MBEDTLS_SSL_CA_ID_TYPE_CERT_SHA1_HASH ) ||
-             ( ( trusted_auth_size - 1 ) > 20 ) )
+            ( trusted_auth_size == 0 ) ||
+            ( ( trusted_auth_size - 1 ) > 20 ) ||
+            ( ( trusted_auth_list_size + trusted_auth_size + 2 ) > len ) )
         {
             MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad client hello message" ) );
-        }
-        else {
-            /* Check if received trusted auth is stored in own trusted auth list */
-            for( selected_id = 1; own_trusted_auth != NULL && own_key_cert != NULL;
-                 selected_id++ )
-            {
-                /* Check id */
-                if( identifier_type == own_trusted_auth->id_type &&
-                    ( trusted_auth_size - 1 ) == own_trusted_auth->len &&
-                    memcmp( own_trusted_auth->id, p, trusted_auth_size - 1 ) == 0 )
-                {
-                    MBEDTLS_SSL_DEBUG_MSG( 3, ( "selected trusted id #%d",
-                                                selected_id ) );
-                    ssl->handshake->trusted_ca_key_cert = own_key_cert;
-                    break;
-                }
-                own_trusted_auth = own_trusted_auth->next;
-                own_key_cert = own_key_cert->next;
-            }
+            mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
+                                            MBEDTLS_SSL_ALERT_MSG_DECODE_ERROR );
+            return( MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO );
         }
 
-        /* If id was not found, check next trusted auth list item */
-        if( ssl->handshake->trusted_ca_key_cert == NULL )
+        /* Check if received trusted auth is stored in own trusted auth list */
+        for( selected_id = 1; own_trusted_auth != NULL && own_key_cert != NULL;
+             selected_id++ )
         {
-            p += ( trusted_auth_size - 1 );
-            trusted_auth_list_size -= ( trusted_auth_size + 2 );
+            /* Check id */
+            if( identifier_type == own_trusted_auth->id_type &&
+                ( trusted_auth_size - 1 ) == own_trusted_auth->len &&
+                memcmp( own_trusted_auth->id, p, own_trusted_auth->len ) == 0 )
+            {
+                MBEDTLS_SSL_DEBUG_MSG( 3, ( "selected trusted id #%d",
+                                                selected_id ) );
+                ssl->handshake->trusted_ca_key_cert = own_key_cert;
+                break;
+            }
+            own_trusted_auth = own_trusted_auth->next;
+            own_key_cert = own_key_cert->next;
         }
-        else
+
+        /* If id was found, return with trusted auth list item */
+        if( ssl->handshake->trusted_ca_key_cert != NULL )
             break;
+
+        p += ( trusted_auth_size - 1 );
+        trusted_auth_list_size += ( trusted_auth_size + 2 );
     }
 
     if( ssl->conf->trusted_auth != NULL ) {
