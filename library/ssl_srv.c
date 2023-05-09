@@ -2212,8 +2212,13 @@ read_record_header:
     {
         mbedtls_md_type_t md_default = MBEDTLS_MD_SHA1;
 
-        if( mbedtls_ssl_check_sig_hash( ssl, md_default ) != 0 )
+        if( mbedtls_ssl_check_sig_hash( ssl, md_default ) != 0 ) {
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "No preferred signature-hash, "
+                                        "but unable to fallback to SHA1" ) );
             md_default = MBEDTLS_MD_NONE;
+        } else {
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "No preferred signature-hash, fallback to SHA1" ) );
+        }
 
         mbedtls_ssl_sig_hash_set_const_hash( &ssl->handshake->hash_algs, md_default );
     }
