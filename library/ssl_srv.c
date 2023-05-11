@@ -577,6 +577,27 @@ static int ssl_parse_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
         own_trusted_auth = ssl->conf->trusted_auth;
         own_key_cert = ssl->conf->key_cert;
 
+        switch( identifier_type )
+        {
+        case MBEDTLS_SSL_CA_ID_TYPE_PRE_AGREED:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: pre_agreed" ) );
+            break;
+        case MBEDTLS_SSL_CA_ID_TYPE_KEY_SHA1_HASH:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: key_sha1_hash" ) );
+            break;
+        case MBEDTLS_SSL_CA_ID_TYPE_X509_NAME:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: x509_name" ) );
+            break;
+        case MBEDTLS_SSL_CA_ID_TYPE_CERT_SHA1_HASH:
+            MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: cert_sha1_hash" ) );
+            break;
+        default:
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Trusted CA type: undefined %u", identifier_type ) );
+            break;
+        }
+
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA size %zu", trusted_auth_size ) );
+
         /* Check items of the received authority list */
         if( ( identifier_type > MBEDTLS_SSL_CA_ID_TYPE_CERT_SHA1_HASH ) ||
             ( trusted_auth_size == 0 ) ||
