@@ -577,37 +577,63 @@ static int ssl_parse_trusted_ca_keys_ext( mbedtls_ssl_context *ssl,
         own_trusted_auth = ssl->conf->trusted_auth;
         own_key_cert = ssl->conf->key_cert;
 
+        MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA size %zu", trusted_auth_size ) );
+
+        /* FIXME: Currently this feature is experimental. So don't abort
+         * connection until we are 100% sure, this is really an issue on
+         * the client side. */
         switch( identifier_type )
         {
         case MBEDTLS_SSL_CA_ID_TYPE_PRE_AGREED:
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: pre_agreed" ) );
+            if( trusted_auth_size != 0 )
+            {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad trusted_auth_size" ) );
+                ssl->handshake->trusted_ca_key_cert = NULL;
+                return( 0 );
+            }
             break;
         case MBEDTLS_SSL_CA_ID_TYPE_KEY_SHA1_HASH:
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: key_sha1_hash" ) );
+            if( trusted_auth_size - 1 > 20 )
+            {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad trusted_auth_size" ) );
+                ssl->handshake->trusted_ca_key_cert = NULL;
+                return( 0 );
+            }
             break;
         case MBEDTLS_SSL_CA_ID_TYPE_X509_NAME:
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: x509_name" ) );
             break;
         case MBEDTLS_SSL_CA_ID_TYPE_CERT_SHA1_HASH:
             MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA type: cert_sha1_hash" ) );
+            if( trusted_auth_size - 1 > 20 )
+            {
+                MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad trusted_auth_size" ) );
+                ssl->handshake->trusted_ca_key_cert = NULL;
+                return( 0 );
+            }
             break;
         default:
             MBEDTLS_SSL_DEBUG_MSG( 1, ( "Trusted CA type: undefined %u", identifier_type ) );
-            break;
+            ssl->handshake->trusted_ca_key_cert = NULL;
+            return( 0 );
         }
 
-        MBEDTLS_SSL_DEBUG_MSG( 3, ( "Trusted CA size %zu", trusted_auth_size ) );
-
-        /* Check items of the received authority list */
-        if( ( identifier_type > MBEDTLS_SSL_CA_ID_TYPE_CERT_SHA1_HASH ) ||
-            ( trusted_auth_size == 0 ) ||
-            ( ( trusted_auth_size - 1 ) > 20 ) ||
-            ( ( trusted_auth_list_size + trusted_auth_size + 2 ) > len ) )
+        if( trusted_auth_list_size + trusted_auth_size + 2 > len )
         {
-            MBEDTLS_SSL_DEBUG_MSG( 1, ( "bad client hello message" ) );
+            /* FIXME: Currently this feature is experimental. So don't abort
+             * connection until we are 100% sure, this is really an issue on
+             * the client side. Afterwards the abort can be restored. */
+            MBEDTLS_SSL_DEBUG_MSG( 1, ( "Unexpected end of data" ) );
+#if 0
             mbedtls_ssl_send_alert_message( ssl, MBEDTLS_SSL_ALERT_LEVEL_FATAL,
                                             MBEDTLS_SSL_ALERT_MSG_DECODE_ERROR );
             return( MBEDTLS_ERR_SSL_BAD_HS_CLIENT_HELLO );
+#else
+            ssl->handshake->trusted_ca_key_cert = NULL;
+            return( 0 );
+#endif
         }
 
         /* Check if received trusted auth is stored in own trusted auth list */
